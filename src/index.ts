@@ -1,4 +1,4 @@
-import qrcode from "qrcode-terminal";
+import qrcode from "qrcode";
 import { Client, Message, Events, LocalAuth } from "whatsapp-web.js";
 
 // Constants
@@ -8,11 +8,16 @@ import constants from "./constants";
 import * as cli from "./cli/ui";
 import { handleIncomingMessage } from "./handlers/message";
 
+// Config
+import { initAiConfig } from "./handlers/ai-config";
+import { initOpenAI } from "./providers/openai";
+
 // Ready timestamp of the bot
 let botReadyTimestamp: Date | null = null;
 
 // Entrypoint
 const start = async () => {
+	const wwebVersion = "2.2412.54";
 	cli.printIntro();
 
 	// WhatsApp Client
@@ -21,16 +26,30 @@ const start = async () => {
 			args: ["--no-sandbox"]
 		},
 		authStrategy: new LocalAuth({
-			clientId: undefined,
 			dataPath: constants.sessionPath
-		})
+		}),
+		webVersionCache: {
+			type: "remote",
+			remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${wwebVersion}.html`
+		}
 	});
 
 	// WhatsApp auth
 	client.on(Events.QR_RECEIVED, (qr: string) => {
-		qrcode.generate(qr, { small: true }, (qrcode: string) => {
-			cli.printQRCode(qrcode);
-		});
+		console.log("");
+		qrcode.toString(
+			qr,
+			{
+				type: "terminal",
+				small: true,
+				margin: 2,
+				scale: 1
+			},
+			(err, url) => {
+				if (err) throw err;
+				cli.printQRCode(url);
+			}
+		);
 	});
 
 	// WhatsApp loading
@@ -57,6 +76,9 @@ const start = async () => {
 
 		// Set bot ready timestamp
 		botReadyTimestamp = new Date();
+
+		initAiConfig();
+		initOpenAI();
 	});
 
 	// WhatsApp message

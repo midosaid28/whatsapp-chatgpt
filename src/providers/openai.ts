@@ -2,30 +2,36 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { randomUUID } from "crypto";
-import { ChatGPT } from "chatgpt-official";
+import { ChatGPTAPI } from "chatgpt";
+import OpenAI from "openai";
+
 import ffmpeg from "fluent-ffmpeg";
-import { Configuration, OpenAIApi } from "openai";
 import { blobFromSync, File } from "fetch-blob/from.js";
 import config from "../config";
+import { getConfig } from "../handlers/ai-config";
 
-let options = {
-	temperature: 0.7, // OpenAI parameter
-	max_tokens: config.maxModelTokens, // OpenAI parameter [Max response size by tokens]
-	top_p: 0.9, // OpenAI parameter
-	frequency_penalty: 0, // OpenAI parameter
-	presence_penalty: 0, // OpenAI parameter
-	// instructions: ``,
-	model: config.openAIModel // OpenAI model
-};
-
-export const chatgpt = new ChatGPT(config.openAIAPIKey, options); // Note: options is optional
+export let chatgpt: ChatGPTAPI;
 
 // OpenAI Client (DALL-E)
-export const openai = new OpenAIApi(
-	new Configuration({
-		apiKey: config.openAIAPIKey
-	})
-);
+export let openai: OpenAI;
+
+export function initOpenAI() {
+	chatgpt = new ChatGPTAPI({
+		apiKey: getConfig("gpt", "apiKey"),
+		completionParams: {
+			model: config.openAIModel,
+			temperature: 0.7,
+			top_p: 0.9,
+			max_tokens: getConfig("gpt", "maxModelTokens")
+		}
+	});
+
+	openai = new OpenAI(
+		{
+			apiKey: getConfig("gpt", "apiKey")
+		}
+	);
+}
 
 export async function transcribeOpenAI(audioBuffer: Buffer): Promise<{ text: string; language: string }> {
 	const url = config.openAIServerUrl;
@@ -56,7 +62,7 @@ export async function transcribeOpenAI(audioBuffer: Buffer): Promise<{ text: str
 	}
 
 	const headers = new Headers();
-	headers.append("Authorization", `Bearer ${config.openAIAPIKey}`);
+	headers.append("Authorization", `Bearer ${getConfig("gpt", "apiKey")}`);
 
 	// Request options
 	const options = {
